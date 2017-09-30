@@ -407,8 +407,8 @@ static const char * const cmd_subvol_list_usage[] = {
 	"-q           print the parent uuid of the snapshots",
 	"-R           print the uuid of the received snapshots",
 	"-t           print the result as a table",
-	"-P           list parent subvolumes only",
-	"-s           list snapshots only in the filesystem",
+	"-P           list only subvolumes without parent (non-snapshots)",
+	"-s           list only snapshots in the filesystem",
 	"-r           list readonly subvolumes (including snapshots)",
 	"-d           list deleted subvolumes that are not yet cleaned",
 	"-G [+|-]value",
@@ -479,7 +479,7 @@ static int cmd_subvol_list(int argc, char **argv)
 			break;
 		case 'P':
 			btrfs_list_setup_filter(&filter_set,
-						BTRFS_LIST_FILTER_PARENT_SUBVOL_ONLY,
+						BTRFS_LIST_FILTER_NOPARENT_ONLY,
 						0);
 			break;
 		case 's':

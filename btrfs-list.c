@@ -1153,7 +1153,7 @@ static int filter_deleted(struct root_info *ri, u64 data)
 	return ri->deleted;
 }
 
-static int filter_parent_subvol_only(struct root_info *ri, u64 data)
+static int filter_noparent_only(struct root_info *ri, u64 data)
 {
 	return uuid_is_null(ri->puuid);
 }
@@ -1172,7 +1172,7 @@ static btrfs_list_filter_func all_filter_funcs[] = {
 	[BTRFS_LIST_FILTER_FULL_PATH]		= filter_full_path,
 	[BTRFS_LIST_FILTER_BY_PARENT]		= filter_by_parent,
 	[BTRFS_LIST_FILTER_DELETED]		= filter_deleted,
-	[BTRFS_LIST_FILTER_PARENT_SUBVOL_ONLY]	= filter_parent_subvol_only,
+	[BTRFS_LIST_FILTER_NOPARENT_ONLY]	= filter_noparent_only,
 };
 
 struct btrfs_list_filter_set *btrfs_list_alloc_filter_set(void)
