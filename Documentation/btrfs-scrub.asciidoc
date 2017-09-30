@@ -20,21 +20,20 @@ structural damage in the filesystem.
 
 The user is supposed to run it manually or via a periodic system service. The
 recommended period is a month but could be less. The estimated device bandwidth
-utilization is about 80% on an idle filesytem. The IO priority class is by
+utilization is about 80% on an idle filesystem. The IO priority class is by
 default 'idle' so background scrub should not interfere with normal filesystem
 operation significantly.
 
 The scrubbing status is recorded in '/var/lib/btrfs/' in textual files named
-'scrub.status.UUID' for a filesystem identified by the given UUID. (An
-itermediate progress is communicated through a named pipe in file
-'scrub.progress.UUID' in the same directory.) The status file is updated
-periodically every 5 seconds. An resumed scrub will continue from the last
-saved position.
+'scrub.status.UUID' for a filesystem identified by the given UUID. (Progress
+state is communicated through a named pipe in file 'scrub.progress.UUID' in the
+same directory.) The status file is updated every 5 seconds. A resumed scrub
+will continue from the last saved position.
 
 SUBCOMMAND
 ----------
 *cancel* <path>|<device>::
-If a scrub is running on the filesystem identified by 'path>' cancel it.
+If a scrub is running on the filesystem identified by 'path' cancel it.
 +
 If a 'device' is specified, the corresponding filesystem is found and
 *btrfs scrub cancel* behaves as if it was called on that filesystem.
@@ -95,7 +94,14 @@ print separate statistics for each device of the filesystem
 EXIT STATUS
 -----------
 *btrfs scrub* returns a zero exit status if it succeeds. Non zero is
-returned in case of failure.
+returned in case of failure:
+
+1::::
+scrub couldn't be performed
+2::::
+there is nothing to resume
+3::::
+scrub found uncorrectable errors
 
 AVAILABILITY
 ------------

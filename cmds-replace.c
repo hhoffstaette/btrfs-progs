@@ -37,7 +37,8 @@
 #include "disk-io.h"
 
 #include "commands.h"
-
+#include "help.h"
+#include "mkfs/common.h"
 
 static int print_replace_status(int fd, const char *path, int once);
 static char *time2string(char *buf, size_t s, __u64 t);
@@ -436,7 +437,7 @@ static int print_replace_status(int fd, const char *path, int once)
 			printf("Never started");
 			break;
 		default:
-			error("unknown status from ioctl DEV_REPLACE_STATUS on '%s': %llu\n",
+			error("unknown status from ioctl DEV_REPLACE_STATUS on '%s': %llu",
 					path, status->replace_state);
 			return -EINVAL;
 		}

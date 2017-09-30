@@ -26,6 +26,7 @@
 #include "props.h"
 #include "ctree.h"
 #include "utils.h"
+#include "help.h"
 
 static const char * const property_cmd_group_usage[] = {
 	"btrfs property get/set/list [-t <type>] <object> [<name>] [value]",
@@ -199,12 +200,6 @@ out:
 	return ret;
 }
 
-static int print_prop_help(const struct prop_handler *prop)
-{
-	fprintf(stdout, "%-20s%s\n", prop->name, prop->desc);
-	return 0;
-}
-
 static int dump_prop(const struct prop_handler *prop,
 		     const char *object,
 		     int types,
@@ -217,7 +212,7 @@ static int dump_prop(const struct prop_handler *prop,
 		if (!name_and_help)
 			ret = prop->handler(type, object, prop->name, NULL);
 		else
-			ret = print_prop_help(prop);
+			printf("%-20s%s\n", prop->name, prop->desc);
 	}
 	return ret;
 }

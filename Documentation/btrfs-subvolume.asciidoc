@@ -17,7 +17,7 @@ snapshots.
 SUBVOLUME AND SNAPSHOT
 ----------------------
 
-A subvolume is a part of filesystem with it's own and independent
+A subvolume is a part of filesystem with its own and independent
 file/directory hierarchy. Subvolumes can share file extents. A snapshot is
 also subvolume, but with a given initial content of the original subvolume.
 
@@ -47,7 +47,7 @@ do not affect the files in the original subvolume.
 
 SUBCOMMAND
 -----------
-*create* [-i <qgroupid>] [<dest>]<name>::
+*create* [-i <qgroupid>] [<dest>/]<name>::
 Create a subvolume <name> in <dest>.
 +
 If <dest> is not given, subvolume <name> will be created in the current
@@ -66,10 +66,13 @@ If <subvolume> is not a subvolume, btrfs returns an error but continues if
 there are more arguments to process.
 +
 The corresponding directory is removed instantly but the data blocks are
-removed later.  The deletion does not involve full commit by default due to
-performance reasons (as a consequence, the subvolume may appear again after a
-crash).  Use one of the '--commit' options to wait until the operation is safely
-stored on the media.
+removed later in the background. The command returns immediatelly. See `btrfs
+subvolume sync` how to wait until the subvolume gets completely removed.
++
+The deletion does not involve full transaction commit by default due to
+performance reasons.  As a consequence, the subvolume may appear again after a
+crash.  Use one of the '--commit' options to wait until the operation is
+safely stored on the device.
 +
 `Options`
 +
@@ -130,14 +133,14 @@ list subvolumes in the filesystem that its generation is
 neither \'+' nor \'-', it means = value.
 -C [+|-]<value>::::
 list subvolumes in the filesystem that its ogeneration is
->=, \<= or = value. The usage is the same to '-g' option.
+>=, \<= or = value. The usage is the same to '-G' option.
 --sort=rootid,gen,ogen,path::::
 list subvolumes in order by specified items.
 you can add \'\+' or \'-' in front of each items, \'+' means ascending,
 \'-' means descending. The default is ascending.
 +
 for --sort you can combine some items together by \',', just like
--sort=+ogen,-gen,path,rootid.
+--sort=+ogen,-gen,path,rootid.
 
 *set-default* <id> <path>::
 Set the subvolume of the filesystem <path> which is mounted as

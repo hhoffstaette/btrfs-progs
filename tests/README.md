@@ -1,7 +1,8 @@
 # Btrfs-progs tests
 
 A testsuite covering functionality of btrfs-progs, ie. the checker, image, mkfs
-and similar tools. There are no special requirements on kernel features, the
+and similar tools. There are no additional requirements on kernel features
+(other than `CONFIG_BTRFS_FS` built-in or module), the
 tests build on top of the core functionality like snapshots and device
 management. In some cases optional features are turned on by mkfs and the
 filesystem image could be mounted, such tests might fail if there's lack of
@@ -29,7 +30,7 @@ category, eg. `fsck-tests-results.txt`.
 
 ## Selective testing
 
-The test are prefixed by a number for ordering and uniqueness. To run a
+The tests are prefixed by a number for ordering and uniqueness. To run a
 particular test use:
 
 ```shell
@@ -75,8 +76,7 @@ will run the first test in fsck-tests subdirectory.
   * anything that does not fit to the above, the test driver script will only
     execute `./test.sh` in the test directory
 
-*tests/common:*
-*tests/common.convert:*
+*tests/common, tests/common.convert:*
 
   * script with shell helpers, separated by functionality
 
@@ -106,11 +106,22 @@ are possible.
 Note: instrumentation is not applied to privileged commands (anything that uses
 the root helper).
 
-### Verbosity
+### Verbosity, test tuning
 
-Setting the variable `TEST_LOG=tty` will print all commands executed by some of
-the wrappers (`run_check` etc), other commands are not printed to the terminal
-(but the full output is in the log).
+* `TEST_LOG=tty` -- setting the variable will print all commands executed by
+  some of the wrappers (`run_check` etc), other commands are not printed to the
+  terminal (but the full output is in the log)
+
+* `TEST_LOG=dump` -- dump the entire testing log when a test fails
+
+* `TEST_ENABLE_OVERRIDE` -- defined either as make arguments or via
+  `tests/common.local` to enable additional arguments to some commands, using
+  the variable(s) below (default: false, enable by setting to 'true')
+
+* `TEST_ARGS_CHECK` -- user-defined arguments to `btrfs check`, before the
+  test-specific arguments
+
+Multiple values can be separated by `,`.
 
 ### Permissions
 
@@ -134,6 +145,13 @@ the loop devices as they are managed on a per-test basis.
 There's a script `test-console.sh` that will run shell commands in a loop and
 logs the output with the testing environment set up.
 
+### Runtime dependencies
+
+The tests use some common system utilities like `find`, `rm`, `dd`. Additionally,
+specific tests need the following packages installed: `acl`, `attr`,
+`e2fsprogs`, `reiserfsprogs`
+
+
 ## New test
 
 1. Pick the category for the new test or fallback to `misc-tests` if not sure. For
@@ -150,7 +168,7 @@ begining of `test.sh`. You don't need to add the file to git yet.
 
 4. Write the test commands, comment anything that's not obvious.
 
-5. Test your test. Use the `TEST` variable to jump right to your test:
+5. **Test your test.** Use the `TEST` variable to jump right to your test:
 ```shell
 $ make TEST=012\* tests-misc           # from top directory
 $ TEST=012\* ./misc-tests.sh           # from tests/
@@ -159,6 +177,7 @@ $ TEST=012\* ./misc-tests.sh           # from tests/
 6. The commit changelog should reference a commit that either introduced or
   fixed the bug (or both). Subject line of the shall mention the name of the
   new directory for ease of search, eg. `btrfs-progs: tests: add 012-subvolume-sync-must-wait`
+
 
 ### Crafted/fuzzed images
 
@@ -170,3 +189,37 @@ description of the problem or the stack trace.
 If you have a fix for the problem, please submit it prior to the test image, so
 the fuzz tests always succeed when run on random checked out. This helps
 bisectability.
+
+
+# Coding style, best practices
+
+## do
+
+* quote all variables by default, any path, even the TOP could need that, and
+  we use it everywhere
+  * there are exceptions:
+    * `$SUDO_HELPER` as it might be intentionally unset
+    * the variable is obviously set to a value that does not require it
+* use `#!/bin/bash` explicitly
+* check for all external dependencies (`check_prereq_global`)
+* check for internal dependencies (`check_prereq`), though the basic set is
+  always built when the tests are started through make
+* use functions instead of repeating code
+  * generic helpers could be factored to the `common` script
+* cleanup after successful test
+* use common helpers and variables
+
+## do not
+
+* pull external dependencies if we can find a way to replace them: example is
+  `xfs_io` that's conveniently used in fstests but we'd require `xfsprogs`,
+  so use `dd` instead
+* throw away (redirect to */dev/null*) output of commands unless it's justified
+  (ie. really too much text, unnecessary slowdown) -- the test output log is
+  regenerated all the time and we need to be able to analyze test failures or
+  just observe how the tests progress
+* cleanup after failed test -- the testsuite stops on first failure and the
+  developer can eg. access the environment that the test created and do further
+  debugging
+  * this might change in the future so the tests cover as much as possible, but
+    this would require to enhance all tests with a cleanup phase

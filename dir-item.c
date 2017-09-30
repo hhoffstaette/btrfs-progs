@@ -46,7 +46,7 @@ static struct btrfs_dir_item *insert_with_overflow(struct btrfs_trans_handle
 		di = btrfs_match_dir_item_name(root, path, name, name_len);
 		if (di)
 			return ERR_PTR(-EEXIST);
-		ret = btrfs_extend_item(trans, root, path, data_size);
+		ret = btrfs_extend_item(root, path, data_size);
 		WARN_ON(ret > 0);
 	}
 	if (ret < 0)
@@ -75,7 +75,7 @@ int btrfs_insert_xattr_item(struct btrfs_trans_handle *trans,
 	u32 data_size;
 
 	key.objectid = dir;
-	btrfs_set_key_type(&key, BTRFS_XATTR_ITEM_KEY);
+	key.type = BTRFS_XATTR_ITEM_KEY;
 	key.offset = btrfs_name_hash(name, name_len);
 	path = btrfs_alloc_path();
 	if (!path)
@@ -125,7 +125,7 @@ int btrfs_insert_dir_item(struct btrfs_trans_handle *trans, struct btrfs_root
 	u32 data_size;
 
 	key.objectid = dir;
-	btrfs_set_key_type(&key, BTRFS_DIR_ITEM_KEY);
+	key.type = BTRFS_DIR_ITEM_KEY;
 	key.offset = btrfs_name_hash(name, name_len);
 	path = btrfs_alloc_path();
 	if (!path)
@@ -156,7 +156,7 @@ int btrfs_insert_dir_item(struct btrfs_trans_handle *trans, struct btrfs_root
 	}
 	btrfs_release_path(path);
 
-	btrfs_set_key_type(&key, BTRFS_DIR_INDEX_KEY);
+	key.type = BTRFS_DIR_INDEX_KEY;
 	key.offset = index;
 	dir_item = insert_with_overflow(trans, root, path, &key, data_size,
 					name, name_len);
@@ -196,7 +196,7 @@ struct btrfs_dir_item *btrfs_lookup_dir_item(struct btrfs_trans_handle *trans,
 	struct extent_buffer *leaf;
 
 	key.objectid = dir;
-	btrfs_set_key_type(&key, BTRFS_DIR_ITEM_KEY);
+	key.type = BTRFS_DIR_ITEM_KEY;
 
 	key.offset = btrfs_name_hash(name, name_len);
 
@@ -213,7 +213,7 @@ struct btrfs_dir_item *btrfs_lookup_dir_item(struct btrfs_trans_handle *trans,
 	btrfs_item_key_to_cpu(leaf, &found_key, path->slots[0]);
 
 	if (found_key.objectid != dir ||
-	    btrfs_key_type(&found_key) != BTRFS_DIR_ITEM_KEY ||
+	    found_key.type != BTRFS_DIR_ITEM_KEY ||
 	    found_key.offset != key.offset)
 		return NULL;
 
@@ -272,7 +272,7 @@ int btrfs_delete_one_dir_name(struct btrfs_trans_handle *trans,
 		start = btrfs_item_ptr_offset(leaf, path->slots[0]);
 		memmove_extent_buffer(leaf, ptr, ptr + sub_item_len,
 			item_len - (ptr + sub_item_len - start));
-		btrfs_truncate_item(trans, root, path, item_len - sub_item_len, 1);
+		btrfs_truncate_item(root, path, item_len - sub_item_len, 1);
 	}
 	return ret;
 }

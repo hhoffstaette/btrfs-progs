@@ -27,7 +27,12 @@
 
 #include <sys/ioctl.h>
 #include <linux/fs.h>
+#include <linux/version.h>
 #include <linux/fiemap.h>
+
+#if !defined(FIEMAP_EXTENT_SHARED) && (HAVE_OWN_FIEMAP_EXTENT_SHARED_DEFINE == 1)
+#define FIEMAP_EXTENT_SHARED           0x00002000
+#endif
 
 #include "utils.h"
 #include "commands.h"
@@ -35,6 +40,8 @@
 #include "rbtree.h"
 
 #include "interval_tree_generic.h"
+#include "help.h"
+#include "fsfeatures.h"
 
 static int summarize = 0;
 static unsigned unit_mode = UNITS_RAW;
@@ -79,7 +86,7 @@ static int add_shared_extent(u64 start, u64 len, struct rb_root *root)
 {
 	struct shared_extent *sh;
 
-	BUG_ON(len == 0);
+	ASSERT(len != 0);
 
 	sh = calloc(1, sizeof(*sh));
 	if (!sh)
@@ -111,7 +118,7 @@ static void cleanup_shared_extents(struct rb_root *root)
 	}
 }
 
-#define dprintf(...)
+#define dbgprintf(...)
 
 /*
  * Find all extents which overlap 'n', calculate the space
@@ -123,7 +130,7 @@ static u64 count_unique_bytes(struct rb_root *root, struct shared_extent *n)
 	u64 wstart = n->start;
 	u64 wlast = n->last;
 
-	dprintf("Count overlaps:");
+	dbgprintf("Count overlaps:");
 
 	do {
 		/*
@@ -136,7 +143,7 @@ static u64 count_unique_bytes(struct rb_root *root, struct shared_extent *n)
 		if (wlast < n->last)
 			wlast = n->last;
 
-		dprintf(" (%llu, %llu)", n->start, n->last);
+		dbgprintf(" (%llu, %llu)", n->start, n->last);
 
 		tmp = n;
 		n = extent_tree_iter_next(n, wstart, wlast);
@@ -145,7 +152,7 @@ static u64 count_unique_bytes(struct rb_root *root, struct shared_extent *n)
 		free(tmp);
 	} while (n);
 
-	dprintf("; wstart: %llu wlast: %llu total: %llu\n", wstart,
+	dbgprintf("; wstart: %llu wlast: %llu total: %llu\n", wstart,
 		wlast, wlast - wstart + 1);
 
 	return wlast - wstart + 1;
@@ -228,7 +235,7 @@ static int mark_inode_seen(u64 ino, u64 subvol)
 		else if (cmp > 0)
 			p = &(*p)->rb_right;
 		else
-			BUG();
+			return -EEXIST;
 	}
 
 	si = calloc(1, sizeof(*si));
@@ -326,6 +333,12 @@ static int du_calc_file_space(int fd, struct rb_root *shared_extents,
 			if (flags & SKIP_FLAGS)
 				continue;
 
+			if (ext_len == 0) {
+				warning("extent %llu has length 0, skipping",
+					(unsigned long long)fm_ext[i].fe_physical);
+				continue;
+			}
+
 			file_total += ext_len;
 			if (flags & FIEMAP_EXTENT_SHARED) {
 				file_shared += ext_len;
@@ -390,6 +403,7 @@ static int du_walk_dir(struct du_dir_ctxt *ctxt, struct rb_root *shared_extents)
 						  shared_extents, &tot, &shr,
 						  0);
 				if (ret == -ENOTTY) {
+					ret = 0;
 					continue;
 				} else if (ret) {
 					fprintf(stderr,
@@ -419,7 +433,6 @@ static int du_add_file(const char *filename, int dirfd,
 	u64 file_total = 0;
 	u64 file_shared = 0;
 	u64 dir_set_shared = 0;
-	u64 subvol;
 	int fd;
 	DIR *dirstream = NULL;
 
@@ -448,16 +461,24 @@ static int du_add_file(const char *filename, int dirfd,
 		goto out;
 	}
 
-	ret = lookup_ino_rootid(fd, &subvol);
-	if (ret)
-		goto out_close;
+	/*
+	 * If st.st_ino == BTRFS_EMPTY_SUBVOL_DIR_OBJECTID ==2, there is no any
+	 * related tree
+	 */
+	if (st.st_ino != BTRFS_EMPTY_SUBVOL_DIR_OBJECTID) {
+		u64 subvol;
 
-	if (inode_seen(st.st_ino, subvol))
-		goto out_close;
+		ret = lookup_path_rootid(fd, &subvol);
+		if (ret)
+			goto out_close;
 
-	ret = mark_inode_seen(st.st_ino, subvol);
-	if (ret)
-		goto out_close;
+		if (inode_seen(st.st_ino, subvol))
+			goto out_close;
+
+		ret = mark_inode_seen(st.st_ino, subvol);
+		if (ret)
+			goto out_close;
+	}
 
 	if (S_ISREG(st.st_mode)) {
 		ret = du_calc_file_space(fd, shared_extents, &file_total,
@@ -540,6 +561,7 @@ int cmd_filesystem_du(int argc, char **argv)
 {
 	int ret = 0, err = 0;
 	int i;
+	u32 kernel_version;
 
 	unit_mode = get_unit_mode_from_arg(&argc, argv, 1);
 
@@ -563,6 +585,14 @@ int cmd_filesystem_du(int argc, char **argv)
 
 	if (check_argc_min(argc - optind, 1))
 		usage(cmd_filesystem_du_usage);
+
+	kernel_version = get_running_kernel_version();
+
+	if (kernel_version < KERNEL_VERSION(2,6,33)) {
+		warning(
+"old kernel version detected, shared space will be reported as exclusive\n"
+"due to missing support for FIEMAP_EXTENT_SHARED flag");
+	}
 
 	printf("%10s  %10s  %10s  %s\n", "Total", "Exclusive", "Set shared",
 			"Filename");

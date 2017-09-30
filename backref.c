@@ -20,7 +20,7 @@
 #include "ctree.h"
 #include "disk-io.h"
 #include "backref.h"
-#include "ulist.h"
+#include "kernel-shared/ulist.h"
 #include "transaction.h"
 #include "internal.h"
 
@@ -450,8 +450,7 @@ static int __add_missing_keys(struct btrfs_fs_info *fs_info,
 		if (ref->key_for_search.type)
 			continue;
 		BUG_ON(!ref->wanted_disk_byte);
-		eb = read_tree_block(fs_info->tree_root, ref->wanted_disk_byte,
-				     fs_info->tree_root->nodesize, 0);
+		eb = read_tree_block(fs_info, ref->wanted_disk_byte, 0);
 		if (!extent_buffer_uptodate(eb)) {
 			free_extent_buffer(eb);
 			return -EIO;
@@ -739,8 +738,7 @@ static int find_parent_nodes(struct btrfs_trans_handle *trans,
 
 	key.objectid = bytenr;
 	key.offset = (u64)-1;
-	if (btrfs_fs_incompat(fs_info,
-			      BTRFS_FEATURE_INCOMPAT_SKINNY_METADATA))
+	if (btrfs_fs_incompat(fs_info, SKINNY_METADATA))
 		key.type = BTRFS_METADATA_ITEM_KEY;
 	else
 		key.type = BTRFS_EXTENT_ITEM_KEY;
@@ -803,11 +801,9 @@ static int find_parent_nodes(struct btrfs_trans_handle *trans,
 		if (ref->count && ref->parent) {
 			if (extent_item_pos && !ref->inode_list &&
 			    ref->level == 0) {
-				u32 bsz;
 				struct extent_buffer *eb;
-				bsz = fs_info->extent_root->nodesize;
-				eb = read_tree_block(fs_info->extent_root,
-							   ref->parent, bsz, 0);
+
+				eb = read_tree_block(fs_info, ref->parent, 0);
 				if (!extent_buffer_uptodate(eb)) {
 					free_extent_buffer(eb);
 					ret = -EIO;
@@ -990,7 +986,7 @@ int btrfs_find_one_extref(struct btrfs_root *root, u64 inode_objectid,
 	unsigned long ptr;
 
 	key.objectid = inode_objectid;
-	btrfs_set_key_type(&key, BTRFS_INODE_EXTREF_KEY);
+	key.type = BTRFS_INODE_EXTREF_KEY;
 	key.offset = start_off;
 
 	ret = btrfs_search_slot(NULL, root, &key, path, 0, 0);
@@ -1030,7 +1026,7 @@ int btrfs_find_one_extref(struct btrfs_root *root, u64 inode_objectid,
 		ret = -ENOENT;
 		if (found_key.objectid != inode_objectid)
 			break;
-		if (btrfs_key_type(&found_key) != BTRFS_INODE_EXTREF_KEY)
+		if (found_key.type != BTRFS_INODE_EXTREF_KEY)
 			break;
 
 		ret = 0;
@@ -1136,8 +1132,7 @@ int extent_from_logical(struct btrfs_fs_info *fs_info, u64 logical,
 	struct btrfs_extent_item *ei;
 	struct btrfs_key key;
 
-	if (btrfs_fs_incompat(fs_info,
-			      BTRFS_FEATURE_INCOMPAT_SKINNY_METADATA))
+	if (btrfs_fs_incompat(fs_info, SKINNY_METADATA))
 		key.type = BTRFS_METADATA_ITEM_KEY;
 	else
 		key.type = BTRFS_EXTENT_ITEM_KEY;
@@ -1156,7 +1151,7 @@ int extent_from_logical(struct btrfs_fs_info *fs_info, u64 logical,
 	}
 	btrfs_item_key_to_cpu(path->nodes[0], found_key, path->slots[0]);
 	if (found_key->type == BTRFS_METADATA_ITEM_KEY)
-		size = fs_info->extent_root->nodesize;
+		size = fs_info->nodesize;
 	else if (found_key->type == BTRFS_EXTENT_ITEM_KEY)
 		size = found_key->offset;
 
